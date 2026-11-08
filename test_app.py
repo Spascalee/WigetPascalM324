@@ -1,4 +1,4 @@
-from app import app, entries
+from app import app, entries, read_version
 
 import pytest
 
@@ -129,3 +129,30 @@ def test_index_shows_happiness(client):
 
     assert 'name="happiness"' in page
     assert "🙂 - Guter Tag" in page
+
+
+def test_health_reports_status_and_version(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "ok"
+    assert data["version"] != ""
+
+
+def test_read_version_from_file(tmp_path):
+    version_file = tmp_path / "VERSION"
+    version_file.write_text("1.2.3\n", encoding="utf-8")
+
+    assert read_version(version_file) == "1.2.3"
+
+
+def test_read_version_without_file_is_dev(tmp_path):
+    assert read_version(tmp_path / "VERSION") == "dev"
+
+
+def test_read_version_with_empty_file_is_dev(tmp_path):
+    version_file = tmp_path / "VERSION"
+    version_file.write_text("", encoding="utf-8")
+
+    assert read_version(version_file) == "dev"
