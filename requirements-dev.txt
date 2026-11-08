@@ -1,0 +1,8 @@
+# Alles, was nur fuer die Entwicklung gebraucht wird (nicht auf Azure)
+-r requirements.txt
+pytest
+pytest-cov
+pre-commit
+# gleiche Versionen wie in .pre-commit-config.yaml und in der CI
+black==26.10.1
+flake8==7.5.0

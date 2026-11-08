@@ -1,2 +1,21 @@
-__pycache__
+# Python
+__pycache__/
+*.pyc
+
+# Virtuelle Umgebung
+.venv/
+venv/
+
+# Geheimnisse – nie einchecken
 .env
+
+# Test- und Coverage-Ausgaben
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+test-results.xml
+
+# Wird erst beim Release erzeugt
+VERSION
+dist/

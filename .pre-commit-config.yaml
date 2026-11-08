@@ -1,0 +1,51 @@
+# "pre-commit install" installiert alle drei Git-Hooks auf einmal
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+# Hooks ohne eigene "stages" laufen nur beim Commit
+default_stages: [pre-commit]
+
+repos:
+  # Allgemeine Dateipruefungen
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+      # GitHub Flow: auf main wird nie direkt committet
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  # Formatierung: black formatiert Python-Code automatisch
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.10.1
+    hooks:
+      - id: black
+
+  # Code-Qualitaet: flake8 meldet Stil- und Programmierfehler
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.5.0
+    hooks:
+      - id: flake8
+
+  - repo: local
+    hooks:
+      # Rueckverfolgbarkeit: jede Commit-Message nennt eine Issue (#Nummer)
+      - id: issue-reference
+        name: Commit-Message verweist auf eine Issue (#Nummer)
+        language: pygrep
+        entry: '#\d+'
+        args: [--multiline, --negate]
+        stages: [commit-msg]
+
+      # Qualitaet: vor jedem Push laufen alle Tests
+      - id: pytest
+        name: pytest
+        entry: python -m pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
