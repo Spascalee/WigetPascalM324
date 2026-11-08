@@ -1,6 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    jsonify,
+)
 from datetime import datetime
 from dataclasses import dataclass
+from pathlib import Path
 import os
 from dotenv import load_dotenv
 
@@ -9,6 +19,21 @@ app.secret_key = os.urandom(24)
 load_dotenv()
 PASSWORD = os.getenv("PASSWORD")
 entries = []
+
+# Die Datei VERSION wird erst beim Release aus dem Git-Tag erzeugt
+VERSION_FILE = Path(__file__).with_name("VERSION")
+
+
+def read_version(version_file=VERSION_FILE):
+    """Liefert die ausgelieferte Version, lokal ohne VERSION-Datei "dev"."""
+    try:
+        version = Path(version_file).read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return "dev"
+    return version or "dev"
+
+
+APP_VERSION = read_version()
 
 
 @dataclass
@@ -21,6 +46,12 @@ class Entry:
 @app.route("/")
 def index():
     return render_template("index.html", entries=entries)
+
+
+@app.route("/health")
+def health():
+    # Wird nach jedem Deployment vom Smoke-Test abgefragt
+    return jsonify(status="ok", version=APP_VERSION)
 
 
 @app.route("/login", methods=["GET", "POST"])
