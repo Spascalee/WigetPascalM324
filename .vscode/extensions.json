@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.black-formatter",
+    "ms-python.flake8",
+    "editorconfig.editorconfig",
+    "github.vscode-pull-request-github",
+    "github.vscode-github-actions"
+  ]
+}
