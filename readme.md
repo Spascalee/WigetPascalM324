@@ -1,5 +1,7 @@
 # Tagebbbuch
 
+[![CI](https://github.com/Spascalee/WigetPascalM324/actions/workflows/ci.yml/badge.svg)](https://github.com/Spascalee/WigetPascalM324/actions/workflows/ci.yml)
+
 Eine kleine Tagebuch-Webapplikation (Flask). Das Projekt zeigt einen vollständigen
 DevOps-Ablauf für Modul 324: Anforderungen als Issues, GitHub Flow, automatische
 Prüfungen vor Commit und Push, CI bei jedem Pull Request sowie automatische Releases
@@ -70,3 +72,21 @@ pytest --cov --cov-report=term-missing      # Tests mit Testabdeckung
    die Issue (`#<nummer>`).
 4. Branch pushen, Pull Request auf `main` mit `Closes #<nummer>` eröffnen.
 5. Mergen, sobald die Checks grün sind. Die Issue wird dabei automatisch geschlossen.
+
+`main` ist durch ein Ruleset geschützt: Änderungen nur per Pull Request, und die
+Checks `lint` und `test` müssen grün sein. Direktes Pushen oder Löschen ist gesperrt.
+
+## Tests und Continuous Integration
+
+Der Workflow `.github/workflows/ci.yml` läuft bei jedem Pull Request auf `main`,
+bei jedem Push auf `main` und als erster Schritt jedes Releases.
+
+| Job | Prüfung |
+| --- | --- |
+| `lint` | Formatierung mit `black --check`, Code-Qualität mit `flake8` |
+| `test` | alle Tests mit `pytest`, Testabdeckung mit `pytest-cov` (mindestens 90 %, sonst schlägt der Job fehl) |
+
+Der Job `test` speichert `coverage.xml` und `test-results.xml` als Artefakt
+„testberichte" (30 Tage) und zeigt die Testabdeckung in der Zusammenfassung des Laufs.
+
+Lokal dieselbe Prüfung: `pytest --cov --cov-report=term-missing`
