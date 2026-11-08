@@ -15,6 +15,7 @@ entries = []
 class Entry:
     content: str
     timestamp: datetime = datetime.now()
+    happiness: str = ""
 
 
 @app.route("/")
@@ -45,8 +46,9 @@ def logout():
 @app.route("/add_entry", methods=["POST"])
 def add_entry():
     content = request.form.get("content")
+    happiness = request.form.get("happiness", "")
     if content:
-        entry = Entry(content=content)
+        entry = Entry(content=content, happiness=happiness)
         entries.append(entry)
     return redirect(url_for("index"))
 
