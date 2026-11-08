@@ -96,3 +96,36 @@ def test_logout(client):
     assert response.status_code == 302
     with client.session_transaction() as session:
         assert "logged_in" not in session
+
+
+def test_add_entry_with_happiness(client):
+    # Test adding an entry with happiness
+    response = client.post(
+        "/add_entry", data={"content": "Test Entry Content", "happiness": "😃"}
+    )
+
+    # Check if the response is a redirect to the index page
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/"
+
+    # Check if the entry was added to the database with the correct happiness
+    entry = entries[0]
+    assert entry is not None
+    assert entry.content == "Test Entry Content"
+    assert entry.happiness == "😃"
+
+
+def test_add_entry_without_happiness_has_no_mood(client):
+    client.post("/add_entry", data={"content": "Ohne Laune"})
+
+    assert entries[0].happiness == ""
+
+
+def test_index_shows_happiness(client):
+    login(client)
+    client.post("/add_entry", data={"content": "Guter Tag", "happiness": "🙂"})
+
+    page = client.get("/").get_data(as_text=True)
+
+    assert 'name="happiness"' in page
+    assert "🙂 - Guter Tag" in page
