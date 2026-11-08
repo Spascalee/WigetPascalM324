@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Diary App</title>
+</head>
+
+<body>
+    <h1>My Diary</h1>
+
+    {% if session.logged_in %}
+    <h2>Welcome, you are logged in!</h2>
+    <a href="/logout">Logout</a>
+    <form method="POST" action="/add_entry">
+        <textarea name="content" rows="4" cols="50" placeholder="Write your entry here..."></textarea>
+        <br>
+        <button type="submit">Add Entry</button>
+    </form>
+    <h2>Entries:</h2>
+    <ul>
+        {% for entry in entries %}
+        <li>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} - {{ entry.content }}</li>
+        {% endfor %}
+    </ul>
+
+    {% else %}
+    <h2>Please log in to view your diary:</h2>
+    <a href="/login">Login</a>
+    {% endif %}
+
+
+</body>
+
+</html>
