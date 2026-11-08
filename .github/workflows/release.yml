@@ -1,0 +1,149 @@
+name: Release und Deployment
+
+# Ausgeloest durch einen Versions-Tag nach Semantic Versioning, z. B. v1.0.0
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: tagebbbuch-m324-wiget
+  STARTUP_COMMAND: gunicorn --bind=0.0.0.0 --timeout 600 app:app
+
+jobs:
+  # 1. Qualitaetssicherung: derselbe Workflow wie bei jedem Pull Request
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # 2. Build: genau ein versioniertes Artefakt erzeugen
+  build:
+    name: build
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v7
+
+      - name: Version aus dem Tag ableiten
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Artefakt bauen
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$VERSION" > VERSION
+          mkdir dist
+          zip -r "dist/tagebbbuch-$VERSION.zip" app.py requirements.txt templates VERSION
+          cd dist
+          sha256sum -- *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Artefakt fuer die folgenden Jobs speichern
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artefakt
+          path: dist/
+          retention-days: 90
+
+  # 3. Release: Artefakt dauerhaft auf GitHub veroeffentlichen
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Artefakt herunterladen
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artefakt
+          path: dist
+
+      - name: GitHub Release erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY"
+          --title "Tagebbbuch $GITHUB_REF_NAME"
+          --generate-notes
+          --verify-tag
+
+  # 4. Deployment: genau dieses Artefakt auf Azure ausliefern
+  deploy:
+    name: deploy
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency: production
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    steps:
+      - name: Artefakt herunterladen
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artefakt
+          path: dist
+
+      - name: Pruefsumme kontrollieren und entpacken
+        run: |
+          cd dist
+          sha256sum --check SHA256SUMS.txt
+          unzip -q "tagebbbuch-${{ needs.build.outputs.version }}.zip" -d ../package
+
+      - name: Bei Azure anmelden (OIDC, ohne Passwort)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_85ACFAD56E7C4BAE99C62FBE0D98D2CD }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BD083BB2EE2C41D39F4660FC8710A634 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A90C39F782C14526A79708BE9249527D }}
+
+      - name: Auf Azure Web App ausliefern
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: package
+          startup-command: ${{ env.STARTUP_COMMAND }}
+
+  # 5. Smoke-Test: laeuft die neue Version wirklich?
+  smoke-test:
+    name: smoke-test
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Ausgelieferte Version pruefen
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+          EXPECTED: ${{ needs.build.outputs.version }}
+        run: |
+          URL="${URL%/}"
+          for attempt in $(seq 1 50); do
+            version=$(curl -fsS "$URL/health" \
+              | python3 -c 'import sys, json; print(json.load(sys.stdin)["version"])' \
+              2>/dev/null || true)
+            echo "Versuch $attempt: erwartet $EXPECTED, erhalten '${version}'"
+            if [ "$version" = "$EXPECTED" ]; then
+              curl -fsS -o /dev/null "$URL/"
+              echo "Startseite erreichbar"
+              echo "### Version $EXPECTED laeuft auf $URL" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Version $EXPECTED ist nach gut 8 Minuten nicht erreichbar"
+          exit 1
