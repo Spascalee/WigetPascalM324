@@ -1,3 +1,5 @@
+import time
+
 from app import app, entries, read_version
 
 import pytest
@@ -156,3 +158,11 @@ def test_read_version_with_empty_file_is_dev(tmp_path):
     version_file.write_text("", encoding="utf-8")
 
     assert read_version(version_file) == "dev"
+
+
+def test_each_entry_gets_its_own_timestamp(client):
+    client.post("/add_entry", data={"content": "Erster Eintrag"})
+    time.sleep(0.01)
+    client.post("/add_entry", data={"content": "Zweiter Eintrag"})
+
+    assert entries[1].timestamp > entries[0].timestamp

@@ -9,7 +9,7 @@ from flask import (
     jsonify,
 )
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -39,7 +39,8 @@ APP_VERSION = read_version()
 @dataclass
 class Entry:
     content: str
-    timestamp: datetime = datetime.now()
+    # default_factory: Zeit bei jedem neuen Eintrag ermitteln, nicht einmal beim Start
+    timestamp: datetime = field(default_factory=datetime.now)
     happiness: str = ""
 
 
