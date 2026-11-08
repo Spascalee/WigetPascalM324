@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "App lokal starten",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m flask --app app run --debug",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests mit Coverage",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m pytest --cov --cov-report=term-missing",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Alle pre-commit-Pruefungen",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m pre_commit run --all-files",
+      "problemMatcher": []
+    }
+  ]
+}
