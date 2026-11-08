@@ -90,3 +90,42 @@ Der Job `test` speichert `coverage.xml` und `test-results.xml` als Artefakt
 „testberichte" (30 Tage) und zeigt die Testabdeckung in der Zusammenfassung des Laufs.
 
 Lokal dieselbe Prüfung: `pytest --cov --cov-report=term-missing`
+
+## Release und Deployment
+
+Ausgeliefert wird nur eine freigegebene, getestete Version. Ein Release wird durch
+einen Versions-Tag nach [Semantic Versioning](https://semver.org/lang/de/) ausgelöst:
+
+```powershell
+git switch main
+git pull
+git tag -a v1.0.0 -m "Version 1.0.0"
+git push origin v1.0.0
+```
+
+Der Workflow `.github/workflows/release.yml` läuft dann in fünf Stufen:
+
+| Job | Aufgabe |
+| --- | --- |
+| `ci` | ruft `ci.yml` auf: Lint und Tests wie bei jedem Pull Request |
+| `build` | erzeugt das Artefakt `tagebbbuch-<version>.zip` (App, Templates, `requirements.txt`, Datei `VERSION`) und eine Prüfsumme `SHA256SUMS.txt` |
+| `release` | erstellt ein [GitHub Release](https://github.com/Spascalee/WigetPascalM324/releases) mit beiden Dateien und automatischen Release Notes (Liste der gemergten Pull Requests) |
+| `deploy` | prüft die Prüfsumme, meldet sich per OIDC bei Azure an und liefert genau dieses Artefakt aus; setzt dabei den Startbefehl von gunicorn |
+| `smoke-test` | ruft `/health` der ausgelieferten App auf, bis die neue Version antwortet (max. gut 8 Minuten); sonst schlägt der Lauf fehl |
+
+Jede Stufe startet nur, wenn die vorherige erfolgreich war. Schlägt ein Test fehl,
+wird nichts veröffentlicht und nichts ausgeliefert.
+
+Versionsnummern: `MAJOR.MINOR.PATCH`. Fehlerbehebung → PATCH erhöhen (1.0.0 → 1.0.1),
+neue Funktion → MINOR (1.0.1 → 1.1.0), inkompatible Änderung → MAJOR.
+
+Die laufende Version zeigt `/health`, z. B. `{"status": "ok", "version": "1.0.0"}`.
+Lokal (ohne Datei `VERSION`) steht dort `dev`.
+
+## Konfiguration und Geheimnisse
+
+| Wert | Wo | Zweck |
+| --- | --- | --- |
+| `PASSWORD` | lokal in `.env`; auf Azure unter Web-App → Umgebungsvariablen → App-Einstellungen | Login-Passwort der App, nie im Repository |
+| `AZUREAPPSERVICE_CLIENTID_…`, `…_TENANTID_…`, `…_SUBSCRIPTIONID_…` | GitHub → Settings → Secrets and variables → Actions | IDs der verwalteten Identität für die Anmeldung bei Azure. Es gibt kein Passwort: GitHub weist sich per OIDC-Token aus |
+| Environment `production` | GitHub → Settings → Environments | Nur Tags `v*` dürfen dorthin ausliefern. Azure vertraut nur Tokens aus diesem Environment (Verbundanmeldeinformation der Identität) |
