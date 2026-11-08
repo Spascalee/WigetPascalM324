@@ -4,13 +4,25 @@ import pytest
 
 # Use Flask's test client for testing
 
+TEST_PASSWORD = "testpasswort"
+
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
     app.config["TESTING"] = True
+    # Tests sollen nicht von einer lokalen .env abhaengen
+    monkeypatch.setattr("app.PASSWORD", TEST_PASSWORD)
+    # entries ist eine globale Liste: vor jedem Test leeren,
+    # damit sich die Tests nicht gegenseitig beeinflussen
+    entries.clear()
     client = app.test_client()
 
     yield client
+
+
+def login(client):
+    with client.session_transaction() as session:
+        session["logged_in"] = True
 
 
 def test_add_entry(client):
@@ -25,3 +37,62 @@ def test_add_entry(client):
     entry = entries[0]
     assert entry is not None
     assert entry.content == "Test Entry Content"
+
+
+def test_add_entry_without_content_is_ignored(client):
+    response = client.post("/add_entry", data={"content": ""})
+
+    assert response.status_code == 302
+    assert entries == []
+
+
+def test_index_asks_for_login(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Please log in" in response.get_data(as_text=True)
+
+
+def test_index_shows_entries_when_logged_in(client):
+    login(client)
+    client.post("/add_entry", data={"content": "Mein erster Eintrag"})
+
+    page = client.get("/").get_data(as_text=True)
+
+    assert "Welcome, you are logged in!" in page
+    assert "Mein erster Eintrag" in page
+
+
+def test_login_page_is_shown(client):
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert 'name="password"' in response.get_data(as_text=True)
+
+
+def test_login_with_correct_password(client):
+    response = client.post("/login", data={"password": TEST_PASSWORD})
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/"
+    with client.session_transaction() as session:
+        assert session["logged_in"] is True
+
+
+def test_login_with_wrong_password(client):
+    response = client.post("/login", data={"password": "falsch"})
+
+    assert response.status_code == 200
+    assert "Incorrect password" in response.get_data(as_text=True)
+    with client.session_transaction() as session:
+        assert "logged_in" not in session
+
+
+def test_logout(client):
+    login(client)
+
+    response = client.get("/logout")
+
+    assert response.status_code == 302
+    with client.session_transaction() as session:
+        assert "logged_in" not in session

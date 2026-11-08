@@ -1,3 +1,14 @@
 [tool.black]
 line-length = 88
 target-version = ["py312"]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+# der Startblock wird nur beim direkten Aufruf ausgefuehrt, nicht im Test
+exclude_also = ["if __name__ == .__main__.:"]
+# Die CI schlaegt fehl, wenn weniger als 90 % des Codes getestet sind
+fail_under = 90
